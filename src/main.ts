@@ -1,10 +1,6 @@
 import './style.css'
-
-interface Product {
-  nom: string;
-  quantite_stock: number;
-  prix_unitaire: number;
-}
+import { filterProducts, sortProducts, saveProducts, loadProducts } from './search'
+import type { Product } from './search'
 
 interface CartItem extends Product {
   quantite: number;
@@ -19,16 +15,13 @@ const counter = document.querySelector<HTMLSpanElement>('#compteur-produits')!;
 
 let allProducts: Product[] = [];
 
-async function loadProducts(): Promise<Product[]> {
-  
-  const stored = localStorage.getItem('products');
-  
-  if (stored) {
-    return JSON.parse(stored);
-  }
+async function fetchAndCacheProducts(): Promise<Product[]> {
+  const stored = loadProducts();
+  if (stored) return stored;
+
   const response = await fetch('/liste_produits_quotidien.json');
   const products: Product[] = await response.json();
-  localStorage.setItem('products', JSON.stringify(products));
+  saveProducts(products);
   return products;
 }
 
@@ -77,17 +70,9 @@ function renderProducts(products: Product[]) {
 }
 
 function updateView() {
-  let filtered = allProducts.filter(p => 
-    p.nom.toLowerCase().includes(searchInput.value.toLowerCase())
-  );
-
-  if (sortSelect.value === 'nom') {
-    filtered.sort((a, b) => a.nom.localeCompare(b.nom));
-  } else if (sortSelect.value === 'prix') {
-    filtered.sort((a, b) => a.prix_unitaire - b.prix_unitaire);
-  }
-
-  renderProducts(filtered);
+  const filtered = filterProducts(allProducts, searchInput.value);
+  const sorted = sortProducts(filtered, sortSelect.value);
+  renderProducts(sorted);
 }
 
 searchInput.addEventListener('input', updateView);
@@ -100,7 +85,7 @@ resetButton.addEventListener('click', () => {
 });
 
 async function init() {
-  allProducts = await loadProducts();
+  allProducts = await fetchAndCacheProducts();
   updateView();
 }
 
